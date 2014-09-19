@@ -1,0 +1,245 @@
+
+<html>
+
+<head>
+<style type="text/css">
+.knitr.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+},
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0em 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage.left {
+  text-align: left;
+}
+.rimage.right {
+  text-align: right;
+}
+.rimage.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<title>Workout sensors</title>
+</head>
+
+<body>
+
+<h1>Are You Working Out Properly?</h1>
+
+<p><b>Executive Summary:</b> We are building models to predict whether someone conducting a workout is doing it properly (category A), or improperly (categories B,C,D,E). We tried 2 classification models: random forest and support vector machines. Turns out that random forest (without boosting) already generates low out of sample error. SVM does not improve performance. For the 20 predictions, both models agreed, so stacking the two models would not improve performance in this specific 20-case example. Both models on their own got 100% of the 20-case sample correct.</p>
+
+<p>Start by loading the training data. Since we want to do cross-validation, we will separate it into training and testing sets.</p>
+
+<div class="chunk" id="unnamed-chunk-1"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(caret)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## Loading required package: lattice
+## Loading required package: ggplot2
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(stats)</span>
+<span class="hl kwd">library</span><span class="hl std">(randomForest)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(e1071)</span>
+<span class="hl std">dat</span><span class="hl kwb">&lt;-</span><span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">&quot;C:/users/wjc/downloads/pml-training.csv&quot;</span><span class="hl std">)</span>
+<span class="hl std">pred</span><span class="hl kwb">=</span><span class="hl kwd">cbind</span><span class="hl std">(dat[</span><span class="hl num">8</span><span class="hl opt">:</span><span class="hl num">11</span><span class="hl std">],dat[</span><span class="hl num">37</span><span class="hl opt">:</span><span class="hl num">49</span><span class="hl std">],dat[</span><span class="hl num">60</span><span class="hl opt">:</span><span class="hl num">68</span><span class="hl std">],dat[</span><span class="hl num">84</span><span class="hl opt">:</span><span class="hl num">86</span><span class="hl std">],dat[</span><span class="hl num">102</span><span class="hl std">],dat[</span><span class="hl num">113</span><span class="hl opt">:</span><span class="hl num">124</span><span class="hl std">],dat[</span><span class="hl num">140</span><span class="hl std">],dat[</span><span class="hl num">151</span><span class="hl opt">:</span><span class="hl num">159</span><span class="hl std">])</span>
+<span class="hl std">class</span><span class="hl kwb">=</span><span class="hl std">dat</span><span class="hl opt">$</span><span class="hl std">classe</span>
+<span class="hl std">pred</span><span class="hl kwb">&lt;-</span><span class="hl kwd">cbind</span><span class="hl std">(pred,class)</span>
+
+<span class="hl std">trainIndex</span><span class="hl kwb">&lt;-</span><span class="hl kwd">createDataPartition</span><span class="hl std">(pred</span><span class="hl opt">$</span><span class="hl std">class,</span><span class="hl kwc">p</span><span class="hl std">=</span><span class="hl num">0.8</span><span class="hl std">,</span><span class="hl kwc">list</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">)</span>
+<span class="hl std">training</span><span class="hl kwb">&lt;-</span><span class="hl std">pred[trainIndex,]</span>
+<span class="hl std">testing</span><span class="hl kwb">&lt;-</span><span class="hl std">pred[</span><span class="hl opt">-</span><span class="hl std">trainIndex,]</span>
+</pre></div>
+</div></div>
+
+<p>Let's start with a random forest model. Build the model on training data set, then calculate accuracy on testing data set.</p>
+
+<div class="chunk" id="unnamed-chunk-2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">rf1</span><span class="hl kwb">&lt;-</span><span class="hl kwd">randomForest</span><span class="hl std">(class</span><span class="hl opt">~</span><span class="hl std">.,</span><span class="hl kwc">data</span><span class="hl std">=training,</span><span class="hl kwc">ntree</span><span class="hl std">=</span><span class="hl num">100</span><span class="hl std">)</span>
+<span class="hl kwd">plot</span><span class="hl std">(rf1)</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/unnamed-chunk-2.png" title="plot of chunk unnamed-chunk-2" alt="plot of chunk unnamed-chunk-2" class="plot" /></div><div class="rcode">
+<div class="source"><pre class="knitr r"><span class="hl kwd">confusionMatrix</span><span class="hl std">(</span><span class="hl kwd">predict</span><span class="hl std">(rf1,testing),testing</span><span class="hl opt">$</span><span class="hl std">class)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1116    1    0    0    0
+##          B    0  758    3    0    0
+##          C    0    0  681    8    0
+##          D    0    0    0  635    4
+##          E    0    0    0    0  717
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.996         
+##                  95% CI : (0.993, 0.998)
+##     No Information Rate : 0.284         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.995         
+##  Mcnemar's Test P-Value : NA            
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             1.000    0.999    0.996    0.988    0.994
+## Specificity             1.000    0.999    0.998    0.999    1.000
+## Pos Pred Value          0.999    0.996    0.988    0.994    1.000
+## Neg Pred Value          1.000    1.000    0.999    0.998    0.999
+## Prevalence              0.284    0.193    0.174    0.164    0.184
+## Detection Rate          0.284    0.193    0.174    0.162    0.183
+## Detection Prevalence    0.285    0.194    0.176    0.163    0.183
+## Balanced Accuracy       1.000    0.999    0.997    0.993    0.997
+</pre></div>
+</div></div>
+
+<p>Looking at rate of error in Figure 1, we determine that we don't need ntrees=100, next time we will use ntrees=70.</p>
+<p>
+On the test set, we are seeing <b>>99% accuracy and >99% kappa</b>. This is out of sample error! This is a very deep forest, so let's just plot the importance to understand what's happening in the model.</p>
+
+<div class="chunk" id="unnamed-chunk-3"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">varImpPlot</span><span class="hl std">(rf1)</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/unnamed-chunk-3.png" title="plot of chunk unnamed-chunk-3" alt="plot of chunk unnamed-chunk-3" class="plot" /></div></div>
+
+<p>By far the roll_belt variable is the most important in determining the outcome. So I suppose if you are lifting weights, watch out for "roll_belt".</p>
+
+<p>To be ambitious, let's see if we can improve results with SVM (with regularization c=1 to avoid overfitting) or even stacked modeling.</p>
+
+<div class="chunk" id="unnamed-chunk-4"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">mod_svm_train</span><span class="hl kwb">&lt;-</span><span class="hl kwd">svm</span><span class="hl std">(class</span><span class="hl opt">~</span><span class="hl std">.,</span><span class="hl kwc">data</span><span class="hl std">=training,</span><span class="hl kwc">cost</span><span class="hl std">=</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl std">predictions_train</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(mod_svm_train)</span>
+<span class="hl kwd">confusionMatrix</span><span class="hl std">(predictions_train,training</span><span class="hl opt">$</span><span class="hl std">class)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 4448  200    6    2    0
+##          B    7 2783   71    0    6
+##          C    8   48 2643  232   59
+##          D    0    2   17 2338   50
+##          E    1    5    1    1 2771
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.954         
+##                  95% CI : (0.951, 0.958)
+##     No Information Rate : 0.284         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.942         
+##  Mcnemar's Test P-Value : <2e-16        
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.996    0.916    0.965    0.909    0.960
+## Specificity             0.981    0.993    0.973    0.995    0.999
+## Pos Pred Value          0.955    0.971    0.884    0.971    0.997
+## Neg Pred Value          0.999    0.980    0.993    0.982    0.991
+## Prevalence              0.284    0.194    0.174    0.164    0.184
+## Detection Rate          0.283    0.177    0.168    0.149    0.177
+## Detection Prevalence    0.297    0.183    0.190    0.153    0.177
+## Balanced Accuracy       0.989    0.955    0.969    0.952    0.980
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">predictions_test</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(mod_svm_train,testing)</span>
+<span class="hl kwd">confusionMatrix</span><span class="hl std">(predictions_test,testing</span><span class="hl opt">$</span><span class="hl std">class)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1107   65    1    1    0
+##          B    4  672   26    0    0
+##          C    5   22  651   61   13
+##          D    0    0    5  580   18
+##          E    0    0    1    1  690
+## 
+## Overall Statistics
+##                                        
+##                Accuracy : 0.943        
+##                  95% CI : (0.935, 0.95)
+##     No Information Rate : 0.284        
+##     P-Value [Acc > NIR] : <2e-16       
+##                                        
+##                   Kappa : 0.928        
+##  Mcnemar's Test P-Value : NA           
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.992    0.885    0.952    0.902    0.957
+## Specificity             0.976    0.991    0.969    0.993    0.999
+## Pos Pred Value          0.943    0.957    0.866    0.962    0.997
+## Neg Pred Value          0.997    0.973    0.990    0.981    0.990
+## Prevalence              0.284    0.193    0.174    0.164    0.184
+## Detection Rate          0.282    0.171    0.166    0.148    0.176
+## Detection Prevalence    0.299    0.179    0.192    0.154    0.176
+## Balanced Accuracy       0.984    0.938    0.960    0.948    0.978
+</pre></div>
+</div></div>
+
+<p><b>Looks like we have accuracy of >95% and kappa of over 92% in the out of sample set.</b> Not an improvement over random forest on its own. With numbers this high, we would just be tricking ourselves if we started stacking the models. Instead, let's look to see if these 2 models disagree in ANY circumstance for the assignment testing set.</p>
+
+
+<div class="chunk" id="unnamed-chunk-5"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">dat</span><span class="hl kwb">&lt;-</span><span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">&quot;C:/users/wjc/downloads/pml-testing.csv&quot;</span><span class="hl std">)</span>
+<span class="hl std">predictors</span><span class="hl kwb">=</span><span class="hl kwd">cbind</span><span class="hl std">(dat[</span><span class="hl num">8</span><span class="hl opt">:</span><span class="hl num">11</span><span class="hl std">],dat[</span><span class="hl num">37</span><span class="hl opt">:</span><span class="hl num">49</span><span class="hl std">],dat[</span><span class="hl num">60</span><span class="hl opt">:</span><span class="hl num">68</span><span class="hl std">],dat[</span><span class="hl num">84</span><span class="hl opt">:</span><span class="hl num">86</span><span class="hl std">],dat[</span><span class="hl num">102</span><span class="hl std">],dat[</span><span class="hl num">113</span><span class="hl opt">:</span><span class="hl num">124</span><span class="hl std">],dat[</span><span class="hl num">140</span><span class="hl std">],dat[</span><span class="hl num">151</span><span class="hl opt">:</span><span class="hl num">159</span><span class="hl std">])</span>
+<span class="hl std">predictions</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(mod_svm_train,predictors)</span>
+<span class="hl std">predictions2</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(rf1,predictors)</span>
+<span class="hl std">predictions</span><span class="hl opt">==</span><span class="hl std">predictions2</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##  [1] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+## [15] TRUE TRUE TRUE TRUE TRUE TRUE
+</pre></div>
+</div></div>
+
+<p>Since the resulting predictions for the 20-case test sample are all identical in both models, any stacking or ensembling we do will have no pragmatic impact. After submitting the results, we determine that this algorithm produces 20/20 correct classifications.</p>
+
+</body>
+</html>
