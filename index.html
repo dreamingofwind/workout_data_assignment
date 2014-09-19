@@ -31,37 +31,171 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+        <p></p>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p></p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+<h1>
+<a name="are-you-working-out-properly" class="anchor" href="#are-you-working-out-properly"><span class="octicon octicon-link"></span></a>Are You Working Out Properly?</h1>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<p><b>Executive Summary:</b> We are building models to predict whether someone conducting a workout is doing it properly (category A), or improperly (categories B,C,D,E). We tried 2 classification models: random forest and support vector machines. Turns out that random forest (without boosting) already generates low out of sample error. SVM does not improve performance. For the 20 predictions, both models agreed, so stacking the two models would not improve performance in this specific 20-case example. Both models on their own got 100% of the 20-case sample correct.</p>
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+<p>Start by loading the training data. Since we want to do cross-validation, we will separate it into training and testing sets.</p>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+<div><div>
+<div><pre>library(caret)
+</pre></div>
 
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
+<div><pre>## Loading required package: lattice
+## Loading required package: ggplot2
+</pre></div>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<div><pre>library(stats)
+library(randomForest)
+</pre></div>
 
-<h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+<div><pre>## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.
+</pre></div>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<div><pre>library(e1071)
+dat&lt;-read.csv("C:/users/wjc/downloads/pml-training.csv")
+pred=cbind(dat[8:11],dat[37:49],dat[60:68],dat[84:86],dat[102],dat[113:124],dat[140],dat[151:159])
+class=dat$classe
+pred&lt;-cbind(pred,class)
 
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+trainIndex&lt;-createDataPartition(pred$class,p=0.8,list=FALSE)
+training&lt;-pred[trainIndex,]
+testing&lt;-pred[-trainIndex,]
+</pre></div>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<p></p>
+</div></div>
+
+<p>Let's start with a random forest model. Build the model on training data set, then calculate accuracy on testing data set.</p>
+
+<div>
+<div>
+<div><pre>rf1&lt;-randomForest(class~.,data=training,ntree=100)
+plot(rf1)
+</pre></div>
+
+<p></p>
+</div>
+<div><img src="figure/unnamed-chunk-2.png" title="plot of chunk unnamed-chunk-2" alt="plot of chunk unnamed-chunk-2"></div>
+<div>
+
+<div><pre>confusionMatrix(predict(rf1,testing),testing$class)
+</pre></div>
+
+<div><pre>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1116    1    0    0    0
+##          B    0  758    3    0    0
+##          C    0    0  681    8    0
+##          D    0    0    0  635    4
+##          E    0    0    0    0  717
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.996         
+##                  95% CI : (0.993, 0.998)
+##     No Information Rate : 0.284         
+##     P-Value [Acc &gt; NIR] : </pre></div>
+
+<p></p>
+</div>
+</div>
+
+<p>Looking at rate of error in Figure 1, we determine that we don't need ntrees=100, next time we will use ntrees=70.</p>
+
+<p>
+On the test set, we are seeing <b>&gt;99% accuracy and &gt;99% kappa</b>. This is out of sample error! This is a very deep forest, so let's just plot the importance to understand what's happening in the model.</p>
+
+<div>
+<div>
+<div><pre>varImpPlot(rf1)
+</pre></div>
+
+<p></p>
+</div>
+<div><img src="figure/unnamed-chunk-3.png" title="plot of chunk unnamed-chunk-3" alt="plot of chunk unnamed-chunk-3"></div>
+</div>
+
+<p>By far the roll_belt variable is the most important in determining the outcome. So I suppose if you are lifting weights, watch out for "roll_belt".</p>
+
+<p>To be ambitious, let's see if we can improve results with SVM (with regularization c=1 to avoid overfitting) or even stacked modeling.</p>
+
+<div><div>
+<div><pre>mod_svm_train&lt;-svm(class~.,data=training,cost=1)
+predictions_train&lt;-predict(mod_svm_train)
+confusionMatrix(predictions_train,training$class)
+</pre></div>
+
+<div><pre>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 4448  200    6    2    0
+##          B    7 2783   71    0    6
+##          C    8   48 2643  232   59
+##          D    0    2   17 2338   50
+##          E    1    5    1    1 2771
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.954         
+##                  95% CI : (0.951, 0.958)
+##     No Information Rate : 0.284         
+##     P-Value [Acc &gt; NIR] : </pre></div>
+
+<div><pre>predictions_test&lt;-predict(mod_svm_train,testing)
+confusionMatrix(predictions_test,testing$class)
+</pre></div>
+
+<div><pre>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1107   65    1    1    0
+##          B    4  672   26    0    0
+##          C    5   22  651   61   13
+##          D    0    0    5  580   18
+##          E    0    0    1    1  690
+## 
+## Overall Statistics
+##                                        
+##                Accuracy : 0.943        
+##                  95% CI : (0.935, 0.95)
+##     No Information Rate : 0.284        
+##     P-Value [Acc &gt; NIR] : </pre></div>
+
+<p></p>
+</div></div>
+
+<p><b>Looks like we have accuracy of &gt;95% and kappa of over 92% in the out of sample set.</b> Not an improvement over random forest on its own. With numbers this high, we would just be tricking ourselves if we started stacking the models. Instead, let's look to see if these 2 models disagree in ANY circumstance for the assignment testing set.</p>
+
+<div><div>
+<div><pre>dat&lt;-read.csv("C:/users/wjc/downloads/pml-testing.csv")
+predictors=cbind(dat[8:11],dat[37:49],dat[60:68],dat[84:86],dat[102],dat[113:124],dat[140],dat[151:159])
+predictions&lt;-predict(mod_svm_train,predictors)
+predictions2&lt;-predict(rf1,predictors)
+predictions==predictions2
+</pre></div>
+
+<div><pre>##  [1] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+## [15] TRUE TRUE TRUE TRUE TRUE TRUE
+</pre></div>
+
+<p></p>
+</div></div>
+
+<p>Since the resulting predictions for the 20-case test sample are all identical in both models, any stacking or ensembling we do will have no pragmatic impact. After submitting the results, we determine that this algorithm produces 20/20 correct classifications.</p>
+
+<p>
+</p>
       </section>
     </div>
 
