@@ -1,0 +1,75 @@
+<html>
+
+<head>
+<title>Workout sensors</title>
+</head>
+
+<body>
+
+<h1>Are You Working Out Properly?</h1>
+
+<p><b>Executive Summary:</b> We are building models to predict whether someone conducting a workout is doing it properly (category A), or improperly (categories B,C,D,E). We tried 2 classification models: random forest and support vector machines. Turns out that random forest (without boosting) already generates low out of sample error. SVM does not improve performance. For the 20 predictions, both models agreed, so stacking the two models would not improve performance in this specific 20-case example. Both models on their own got 100% of the 20-case sample correct.</p>
+
+<p>Start by loading the training data. Since we want to do cross-validation, we will separate it into training and testing sets.</p>
+
+<!--begin.rcode
+library(caret)
+library(stats)
+library(randomForest)
+library(e1071)
+dat<-read.csv("C:/users/wjc/downloads/pml-training.csv")
+pred=cbind(dat[8:11],dat[37:49],dat[60:68],dat[84:86],dat[102],dat[113:124],dat[140],dat[151:159])
+class=dat$classe
+pred<-cbind(pred,class)
+
+trainIndex<-createDataPartition(pred$class,p=0.8,list=FALSE)
+training<-pred[trainIndex,]
+testing<-pred[-trainIndex,]
+end.rcode-->
+
+<p>Let's start with a random forest model. Build the model on training data set, then calculate accuracy on testing data set.</p>
+
+<!--begin.rcode fig.width=7, fig.height=6
+rf1<-randomForest(class~.,data=training,ntree=100)
+plot(rf1)
+
+confusionMatrix(predict(rf1,testing),testing$class)
+
+end.rcode-->
+
+<p>Looking at rate of error in Figure 1, we determine that we don't need ntrees=100, next time we will use ntrees=70.</p>
+<p>
+On the test set, we are seeing <b>>99% accuracy and >99% kappa</b>. This is out of sample error! This is a very deep forest, so let's just plot the importance to understand what's happening in the model.</p>
+
+<!--begin.rcode fig.width=7, fig.height=6
+varImpPlot(rf1)
+end.rcode-->
+
+<p>By far the roll_belt variable is the most important in determining the outcome. So I suppose if you are lifting weights, watch out for "roll_belt".</p>
+
+<p>To be ambitious, let's see if we can improve results with SVM (with regularization c=1 to avoid overfitting) or even stacked modeling.</p>
+
+<!--begin.rcode fig.width=7, fig.height=6
+mod_svm_train<-svm(class~.,data=training,cost=1)
+predictions_train<-predict(mod_svm_train)
+confusionMatrix(predictions_train,training$class)
+
+predictions_test<-predict(mod_svm_train,testing)
+confusionMatrix(predictions_test,testing$class)
+end.rcode-->
+
+<p><b>Looks like we have accuracy of >95% and kappa of over 92% in the out of sample set.</b> Not an improvement over random forest on its own. With numbers this high, we would just be tricking ourselves if we started stacking the models. Instead, let's look to see if these 2 models disagree in ANY circumstance for the assignment testing set.</p>
+
+
+<!--begin.rcode fig.width=7, fig.height=6
+dat<-read.csv("C:/users/wjc/downloads/pml-testing.csv")
+predictors=cbind(dat[8:11],dat[37:49],dat[60:68],dat[84:86],dat[102],dat[113:124],dat[140],dat[151:159])
+predictions<-predict(mod_svm_train,predictors)
+predictions2<-predict(rf1,predictors)
+predictions==predictions2
+end.rcode-->
+
+<p>Since the resulting predictions for the 20-case test sample are all identical in both models, any stacking or ensembling we do will have no pragmatic impact. After submitting the results, we determine that this algorithm produces 20/20 correct classifications.</p>
+
+</body>
+</html>
